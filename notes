@@ -1,0 +1,60 @@
+extends Node2D
+
+@export_group("References")
+@export var center_body: Node2D          # Assign the center planet/sun in the Inspector
+
+@export_group("Movement Settings")
+@export var orbit_speed: float = 2.0     # Rotation speed in radians per second
+@export var gravity_pull: float = 150.0  # Pixels per second lost toward the center
+@export var flap_strength: float = 80.0  # Pixels pushed outward on spacebar press
+
+@export_group("Limits")
+@export var min_radius: float = 50.0     # Crash distance (Planet radius)
+@export var max_radius: float = 600.0    # Maximum boundary
+
+var current_radius: float = 0.0
+var current_angle: float = 0.0
+
+func _ready() -> void:
+	if not center_body:
+		push_error("Please assign a Center Body in the Inspector!")
+		set_process(false)
+		return
+
+	# Calculate starting radius and angle based on where you place the player in the editor
+	var offset: Vector2 = global_position - center_body.global_position
+	current_radius = offset.length()
+	current_angle = offset.angle()
+
+func _process(delta: float) -> void:
+	if not center_body:
+		return
+
+	# 1. Constant rotation around the body
+	current_angle += orbit_speed * delta
+
+	# 2. Continuous pull toward the center (Gravity)
+	current_radius -= gravity_pull * delta
+
+	# 3. Flap mechanism (Widen orbit)
+	# Note: Make sure "ui_accept" is mapped to Spacebar in Project Settings -> Input Map
+	if Input.is_action_just_pressed("ui_accept"):
+		current_radius += flap_strength
+
+	# 4. Clamp the radius to boundaries
+	current_radius = clamp(current_radius, min_radius, max_radius)
+
+	# Check for lose condition
+	if current_radius <= min_radius:
+		game_over()
+
+	# 5. Convert Polar Coordinates back to Cartesian (X, Y) vectors
+	var new_offset: Vector2 = Vector2.from_angle(current_angle) * current_radius
+	global_position = center_body.global_position + new_offset
+	
+	# Optional: Rotate the player to face forward along the orbit line
+	rotation = current_angle + PI / 2
+
+func game_over() -> void:
+	print("Player crashed into the center body!")
+	# Add scene reload or game over UI logic here
